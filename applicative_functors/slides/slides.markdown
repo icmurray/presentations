@@ -933,26 +933,34 @@ Compare the `pair` function to its monadic-style counterpart:
 
 # What I haven't talked about
 
-* The original applicative functor paper.
+* The original applicative functor [paper](http://www.soi.city.ac.uk/~ross/papers/Applicative.html).
 
-  TODO: link
+  * Motivation of the abstraction is different than presented here.
 
-* Composition of Applicative
+* Composition of Applicative is possible in the general case:
 
-* Composition of applicatives (unlike Monads, Applicatives compose, so there's
-  no need for special transformers).
+  * Given two Applicatives, `A` and `B`, then `A ( B a )` is also an Applicative.
 
 * Applicatives that aren't Monads
 
+  * `ZipList` is the canonical example.
+  * `Data.Applicative.Const` is another.
+
 * Limitations of Applicatives
+
+  * Actions are independant of each other.
+    * All actions are run.
+    * Can't pass values from one into the next.
 
 ---
 
 # References
 
-* Typeclassopedia
-* HaskellWiki
-* Real World Haskell / Bryan O'Sullivan's blog
-* Learn you a haskell for great good
-* Tony Morris' validation presentation.
-* scalaz Validation class
+* [Typeclassopedia](http://www.haskell.org/haskellwiki/Typeclassopedia)
+* [HaskellWiki](http://en.wikibooks.org/wiki/Haskell/Applicative_Functors)
+* [Real World Haskell](http://book.realworldhaskell.org/read/using-parsec.html)
+* [Bryan O'Sullivan's blog](http://www.serpentine.com/blog/2008/02/06/the-basics-of-applicative-functors-put-to-practical-work/)
+* [Learn you a haskell for great good](http://learnyouahaskell.com/functors-applicative-functors-and-monoids#applicative-functors)
+* Tony Morris' [validation presentation](http://dl.dropbox.com/u/7810909/docs/applicative-errors-scala/applicative-errors-scala/pdf/index.pdf) (in Scala).
+* scalaz [Validation class](https://github.com/scalaz/scalaz/blob/master/core/src/main/scala/scalaz/Validation.scala)
+* Tony Morris' [Validation package for Haskell](http://hackage.haskell.org/package/Validation-0.2.0)
