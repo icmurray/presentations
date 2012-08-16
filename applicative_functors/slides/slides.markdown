@@ -955,7 +955,7 @@ Compare the `pair` function to its monadic-style counterpart:
 ---
 
 # References
-
+* The original applicative functor [paper](http://www.soi.city.ac.uk/~ross/papers/Applicative.html).
 * [Typeclassopedia](http://www.haskell.org/haskellwiki/Typeclassopedia)
 * [HaskellWiki](http://en.wikibooks.org/wiki/Haskell/Applicative_Functors)
 * [Real World Haskell](http://book.realworldhaskell.org/read/using-parsec.html)
