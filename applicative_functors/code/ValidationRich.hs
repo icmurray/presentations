@@ -33,7 +33,7 @@ instance (Monoid e) => Applicative (ValidationRich e) where
   Success g   <*> Success a   = Success (g a)
   Failure es  <*> Success a   = Failure es
   Success g   <*> Failure es  = Failure es
-  Failure e1s <*> Failure e2s = undefined
+  Failure e1s <*> Failure e2s = Failure (e1s `mappend` e2s)
 
 -- Construct a valid Person
 mkPerson :: String -> Int -> String -> ValidationRich [String] Person

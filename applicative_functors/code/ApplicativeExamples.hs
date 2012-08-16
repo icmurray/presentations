@@ -72,13 +72,10 @@ instance Functor (MyEither a) where
 instance Applicative (MyEither a) where
   pure x = MyRight x
 
-  MyRight g <*> x = g `fmap` x
-  MyLeft  err <*> x = MyLeft err
-
---   MyRight g <*> MyRight x = MyRight (g x)
---   MyRight g <*> MyLeft x  = undefined
---   MyLeft  g <*> MyRight x = undefined
---   MyLeft  g <*> MyLeft x  = undefined
+  MyRight g <*> MyRight x = MyRight (g x)
+  MyRight g <*> MyLeft x  = MyLeft x
+  MyLeft  g <*> MyRight x = MyLeft g
+  MyLeft  g <*> MyLeft x  = MyLeft g
 
 -- Test our MyEither
 myEitherTest1 = buildEmail <$> MyRight "a.person" <*> MyRight "example.com"
