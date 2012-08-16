@@ -935,22 +935,22 @@ Compare the `pair` function to its monadic-style counterpart:
 
 * The original applicative functor [paper](http://www.soi.city.ac.uk/~ross/papers/Applicative.html).
 
-  * Motivation of the abstraction is different than presented here.
+    * Motivation of the abstraction is different than presented here.
 
 * Composition of Applicative is possible in the general case:
 
-  * Given two Applicatives, `A` and `B`, then `A ( B a )` is also an Applicative.
+    * Given two Applicatives, `A` and `B`, then `A ( B a )` is also an Applicative.
 
 * Applicatives that aren't Monads
 
-  * `ZipList` is the canonical example.
-  * `Data.Applicative.Const` is another.
+    * `ZipList` is the canonical example, `Data.Applicative.Const` is another.
 
 * Limitations of Applicatives
 
-  * Actions are independant of each other.
-    * All actions are run.
-    * Can't pass values from one into the next.
+    * Actions are independant of each other.
+
+        * All actions are run.
+        * Can't pass values from one into the next.
 
 ---
 
