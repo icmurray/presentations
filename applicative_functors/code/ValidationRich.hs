@@ -113,7 +113,15 @@ instance (Ord k, Monoid v) => Monoid (AccMap k v) where
   mempty                        = AccMap M.empty
   AccMap m1 `mappend` AccMap m2 = AccMap (M.unionWith mappend m1 m2)
 
+
+-- enrich can be used to convert a ValidationRich
 enrich :: String -> ValidationRich e a -> ValidationRich (M.Map String e) a
 enrich _   (Success a)   = Success a
 enrich key (Failure err) = Failure (M.singleton key err)
+
+-- example of rewriting mkPerson to use enrich
+enrichedMkPerson username age email = Person <$> validUser <*> validAge <*> validEmail
+  where validUser  = enrich "username" (validateUsername username)
+        validAge   = enrich "age" (validateAge age)
+        validEmail = enrich "email" (validateEmailAddress email)
 
