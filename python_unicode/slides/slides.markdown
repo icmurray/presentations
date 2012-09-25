@@ -282,6 +282,38 @@ The constructor's signature:
 
 ---
 
+# The `unicode` type
+
+    !python
+    >>> sigma = u'\u03a3'
+    >>> print sigma
+    Σ
+
+    >>> print sigma.lower()
+    σ
+    
+    >>> sigma.isupper()
+    True
+
+    >>> sigman.islower()
+    False
+
+---
+
+# The `unicode` type
+
+    !python
+    >>> u'roses' < u'roset'
+    True
+
+    >>> u'rosés' < u'roset'
+    False
+
+[Unique Collation Algorithm](http://unicode.org/reports/tr10/) (UTA) specifies
+that these should both be `True`.
+
+---
+
 # Converting between unicode and str
 
     !python
