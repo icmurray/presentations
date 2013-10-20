@@ -1,0 +1,9 @@
+@(form: Form[uk.co.sprily.scalaTalk.frontend.controllers.UserCreation])
+
+@layout("Create User") {
+  @helper.form(action = uk.co.sprily.scalaTalk.frontend.controllers.routes.UserController.submit) {
+    @helper.inputText(form("name"))
+    @helper.inputPassword(form("password"))
+    <input type="submit" value="Submit"/>
+  }
+}

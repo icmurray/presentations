@@ -1,0 +1,3 @@
+POST    /users/create   uk.co.sprily.scalaTalk.frontend.controllers.UserController.submit
+GET     /users/create   uk.co.sprily.scalaTalk.frontend.controllers.UserController.create
+GET     /users/:name    uk.co.sprily.scalaTalk.frontend.controllers.UserController.detail(name)
