@@ -1238,3 +1238,700 @@ So far I've been skipping over this
     }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+# Spray
+
+## Spray: Providing a REST API
+
+> Spray is an open-source toolkit for building REST/HTTP-based integration
+> layers on top of Scala and Akka. Being asynchronous, actor-based, fast,
+> lightweight, modular and testable it's a great way to connect your Scala
+> applications to the world.
+
+## Spray
+
+Spray has many components and is highly modularized:
+
+> - spray-io : low-level network IO connecting Akka actors to asynchronous
+>   Java NIO sockets.
+      - Now being migrated into Akka itself.
+> - spray-can : Low-level HTTP server and client built on top of spray-io
+> - spray-client : High-level HTTP client built on top of spray-can
+> - spray-http : Fully immutable, case-class based model of the major HTTP data
+>   structures
+> - spray-httpx : Higher level logic for working with HTTP messages
+      - Marshalling/un-marshalling data
+      - (De-)compression
+      - Request building
+      - Response transformation
+> - spray-routing : DSL for describing REST API
+> - spray-servlet : Adapter layer for running spray-can server on the Servlet
+>   API
+> - spray-testkit : DSL for testing routing logic
+
+## Spray
+
+### Overview
+
+> - Routing
+> - Marshalling
+> - Running on spray-can HTTP server
+
+## Spray
+
+### Routing
+
+Spray-can provides an actor-level interface which allows your application to
+respond to incoming `HttpRequest`s by replying with a `HttpResponse` instance:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    import spray.http._
+    import HttpMethods._
+
+    class MyHttpService extends Actor {
+      def receive = {
+        case HttpRequest(GET, Uri.Path("/ping"), _, _, _) =>
+          sender ! HttpResponse(entity = "PONG")
+      }
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Spray
+
+### Routing
+
+Alternatively, `spray-routing` provides a DSL for describing the structure of the REST
+API using composable elements called `Directive`s.  The above example would be
+written as:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    import spray.routing._
+
+    class MyHttpService extends HttpServiceActor {
+      def receive = runRoute {
+        path("ping") {
+          get {
+            complete("PONG")
+          }
+        }
+      }
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The `runRoute` function constructs a partial function from the structure you've
+described in the DSL and applies that to each `HttpRequest`.
+
+## Spray
+
+### Routing
+
+The routing DSL is made available through the `HttpService` trait, which has
+one abstract member:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    def actorRefFactory: ActorRefFactory
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In the previous example we mixed in `HttpServiceActor` which already defines
+the Akka actor context required.
+
+## Spray
+
+### Routes
+
+All structures you build with the routing DSL are subtypes of type `Route`:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    type Route = RequestContext => Unit
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+\pause
+
+Note that the return type is `Unit`, **not** `HttpResponse`!
+
+Instead, a `RequestContext` is *completed*:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    ctx.complete(httpResponse)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Which the `ctx` then sends asyncronously to an Akka actor which takes care of
+writing the response to the socket.  This allows for chunked responses that are
+only available incrementally.
+
+## Spray
+
+### Routing
+
+So, since a `Route` is just an ordinary function, it's simplest form looks
+like this:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    ctx => ctx.complete("Response")
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Alternatively:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    _.complete("Response")
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Or using the `complete` directive:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    complete("Response")
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Spray
+
+### Routing
+
+A `RequestContext` can also be *rejected*:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    ctx => ctx.reject(...)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Which means that this particular route does not want to handle this particular
+request.
+
+\pause Or *ignored*:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    ctx => { /** neither completed nor rejected */ }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is generally an error.  If a `RequestContext` is not acted upon (rejected
+or completed) then the request will eventually time out, and the user will be
+presented with a `500 Internal Server Error` response.
+
+## Spray
+
+### Routing
+
+Routes are composed together to produce complex Routes from simpler building
+blocks:
+
+> - Route transformation: Processing is delegated to an inner-route, but in
+>   doing so, the incoming request or the outgoing response is modified in some
+>   manner.
+> - Route filtering: Only letting requests satisfying some predicate pass, all
+>   others are rejected.
+> - Route chaining: Tries a second `Route` if a first `Route` rejects it.
+
+> - Route transformation and filtering are achieved through the use of
+>   `Directive`s.
+> - Route chaining is achieved through the `~` operator.
+
+## Spray
+
+### Routing
+
+The routing DSL essentially describes a tree:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    val route =
+      a {
+        b {
+          c {
+            ... // route 1
+          } ~
+          d {
+            ... // route 2
+          } ~
+          ... // route 3
+        } ~
+        e {
+          ... // route 4
+        }
+      }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A request is injected into the root of this tree, and flows down through it
+depth-first until some leaf of the tree completes it, *or* it is fully
+rejected.
+
+## Spray
+
+### Routing
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    val route =
+      a {
+        b {
+          c {
+            ... // route 1
+          } ~
+          d {
+            ... // route 2
+          } ~
+          ... // route 3
+        } ~
+        e {
+          ... // route 4
+        }
+      }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+> - Route 1 will only be reached if directives a, b and c all let the request
+>   pass through.
+
+> - Route 2 will run if a and b pass, c rejects and d passes.
+
+> - Route 3 will run if a and b pass, but c and d reject.
+
+## Spray
+
+### Routing
+
+Back to our first example:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    import spray.routing._
+
+    class MyHttpService extends HttpServiceActor {
+      def receive = runRoute {
+        path("ping") {
+          get {
+            complete("PONG")
+          }
+        }
+      }
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Spray
+
+### Routing
+
+`Directives` are the building blocks of the routing tree.  They do at least one
+of the following:
+
+1. Filter the `RequestContext` according to some logic, i.e. only pass on certain
+   requests and reject all others.
+
+2. Extract values from the `RequestContext` and make them available to its inner
+   Route as “extractions”.
+
+3. Complete the request.
+
+4. Transform the incoming RequestContext before passing it on to its inner
+   Route.
+
+## Spray
+
+### Routing
+
+Filtering directives:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    path("users") {
+      get {
+        ...
+      } ~
+      post {
+        ...
+      }
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+`path`, `get` and `post` are all examples of filter directives.
+
+## Spray
+
+### Routing
+
+Exracting values:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    path("users" / LongNumber) { id =>
+      get {
+        ...
+      }
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+`path("users" / LongNumber)` extracts a `Long` from the URL and provides it as
+the value `id` in the inner route.
+
+## Spray
+
+### Routing
+
+The `path("users")` directive is also an example of a directive which
+transforms the incoming `RequestContext` because it extracts the suffix of the
+path that was not matched, and passes that in as the path to the inner route.
+
+\pause
+
+Simmilarly, the `HttpResponse` can be altered as it filters back up the matched
+path.  Eg.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    path("users" / LongNumber) { id =>
+      respondWithHeader(httpHeader) {
+        get {
+          ...
+        }
+      }
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Spray
+
+### Routing
+
+Some useful directives:
+
+> - `get`, `put`, `post`, `delete` match only http requests with those methods.
+    - Can be composed together, eg:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+        val getOrPut = get | put
+        val route = getOrPut { ... }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+> - `path("users")` and `pathPrefix("users")` for matching paths.
+
+> - `IntNumber`, `LongNumber`, `JavaUUID` all extract values from a single
+>   segment in a url path.
+
+And user-defined one can also be created.
+
+## Spray
+
+### Routing
+
+We now have the building blocks to describe the API structure for our
+UserService.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    import spray.routing._
+
+    trait UserRoutes extends HttpService {
+      this: UserServiceModule =>
+
+      val userRoutes = pathPrefix("users") {
+        path("") {
+          post {
+            userService.create(???, ???)
+            ???
+          }
+        } ~
+        path(PathElement) { username =>
+          get {
+            userService.find(username)
+            ???
+          }
+        }
+      }
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Spray
+
+### Routing
+
+And also, how we might use the UserService to authenticate users when accessing
+a protected resource:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    import spray.routing._
+
+    trait PrivateRoutes extends HttpService {
+      this: UserServiceModule =>
+
+      /** Required for the UserServiceAuthenticator **/
+      import scala.concurrent.{Future, ExecutionContext}
+      implicit def executionContext: ExecutionContext = actorRefFactory.dispatcher 
+
+      import spray.routing.authentication._
+      val privateRoutes = path("protected") {
+        authenticate(BasicAuth(userAthenticator, "realm name")) { user =>
+          complete("Secret!")
+        }
+      }
+
+      private val userAuthenticator = new UserServiceAuthenticator()
+
+      private class UserServiceAuthenticator
+              extends UserPassAuthenticator[User] { /** ellided */ }
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Spray
+
+### Routing
+
+Pulling these two route definitions together and serving them using spray-can:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    object Boot extends App {
+
+      // we need an ActorSystem to host our application in
+      implicit val system = ActorSystem("on-spray-can")
+
+      // create and start our service actor
+      val service = system.actorOf(Props[ServiceActor], "hello-service")
+
+      // start a new HTTP server on port 8080 with our service actor as the handler
+      IO(Http) ! Http.Bind(service, "localhost", port = 8080)
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Spray
+
+### Routing
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    class ServiceActor extends Actor
+                          with PrivateRoutes
+                          with UserRoutes
+                          with SlickUserServiceModule
+                          with SlickUserTableModule
+                          with InMemoryDatabaseModule {
+
+      // the HttpService trait defines only one abstract member, which
+      // connects the services environment to the enclosing actor or test
+      def actorRefFactory = context
+
+      // this actor only runs our route, but you could add
+      // other things here, like request stream processing,
+      // timeout handling or alternative handler registration
+      def receive = runRoute(allRoutes)
+
+      lazy val allRoutes = userRoutes ~ privateRoutes
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Spray
+
+### Marshalling and Unmarshalling
+
+Conversion of Scala objects to/from `Array[Byte]` for transmission.
+
+- Just going to cover very basic marshalling to/from JSON.
+
+## Spray
+
+### Marshalling
+
+Marshalling in Spray is the conversion of a type `T` to a `HttpEntity`.  It is
+performed by a Marshaller:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    trait Marshaller[T] {
+      def apply(value: T, ctx: MarshallingContext): Unit
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+\pause
+
+Again, the type the `apply` function is perhaps not expected.  The Spray
+documentation cites 3 reasons for this:
+
+1. Marshalling must support content negotiation.  The claim is that this is
+   easier if the `Marshaller` drives the process.
+
+2. Using the side-effectful style, the `Marshaller` can delay their action and
+   complete the marshalling from another thread (for example, if the result of
+   a `Future` arrives).
+
+3. Marshallers can produce content in chunks.
+
+## Spray
+
+### Marshalling
+
+The marshalling in Spray uses type-classes.  That is, to marshall a type `T`,
+the compiler must be able to find a `Marshaller[T]` in implicit scope.
+
+## Spray
+
+### Marshalling
+
+There are a whole host of default marshallers available in the `Marshaller`
+companion object.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    Array[Byte]
+    Array[Char]
+    String
+    NodeSeq
+    Throwable
+    spray.http.FormData
+    spray.http.HttpEntity
+
+    Option[T]
+    Either[A, B]
+    Try[T]
+    Future[T]
+    Stream[T]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(Details of the Scala implicit scope resolution mean that because they are
+defined on the `Marshaller` companion object, they are always available, but
+are still overridable by bringing your own `Marshaller`s into *local* scope).
+
+## Spray
+
+### JSON Marshalling
+
+Spray has it's own JSON library, `spray-json`.  And also `Marshaller`s for each
+of the JSON types defined in that library.
+
+## Spray
+
+### JSON Marshalling
+
+`spray-json`'s JSON support is also via type-classes.
+
+Converting an instance of type `T` to a `spray-json` JsValue is achieved using
+a `JsonWriter[T]` or a `RootJsonWriter[T]`:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    trait JsonWriter[T] {
+      def write(obj: T): JsValue
+    }
+
+    trait RootJsonWriter[T] extends JsonWriter[T]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- `RootJsonWriter` is capable of writing a JSON array or a JSON object.
+
+## Spray
+
+### JSON Marshalling
+
+Similarly an instance of type `T` *from* a `spray-json` JsValue is achieved using
+a `JsonReader[T]` or a `RootJsonReader[T]`:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    trait JsonReader[T] {
+      def write(js: JsValue): T
+    }
+
+    trait RootJsonReader[T] extends JsonReader[T]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Spray
+
+### JSON Marshalling
+
+Finally, `JsonFormat[T]` combines the two reader and writer traits:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    trait JsonFormat[T] extends JsonReader[T] with JsonWriter[T]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Spray
+
+### JSON Marshalling
+
+To convert our Scala classes to/from JSON we must create an instance of the
+above `JsonFormat[T]`.
+
+In the case of case classes, this is very simple:
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+trait JSONFormats {
+
+  implicit val userIdFormat = jsonFormat1(UserId)
+
+  implicit val userWriter = new RootJsonWriter[User] {
+    def write(user: User) = JsObject(
+      "username" -> user.name.toJson,
+      "id"       -> user.id.toJson)
+  }
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- `jsonFormatN` can be used to construct a `JsonFormat[T]` when `T` is a case
+  class.
+    - There is a variant which accepts alternate field names.
+
+- We haven't constructed a full `JsonFormat[User]` because we cannot construct
+  the HashedPassword.  But we have provided the read-side.
+
+## Spray
+
+### JSON Marshalling
+
+> - To tie JSON conversion into the marshalling, spray provides
+`spray.httpx.SprayJsonSupport`.
+
+> - It provides a `Marshaller[T]` and
+   `Unmarshaller[T]` for every type `T` that an implicit `RootJsonWriter[T]`
+    and `RootJsonReader[T]` is available for.
+
+## Spray
+
+### JSON Marshalling
+
+Returning to the route service:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    import spray.httpx.SprayJsonSupport
+
+    trait UserRoutes extends HttpService
+                        with JSONFormats
+                        with SprayJsonSupport {
+      this: UserServiceModule =>
+
+      val userRoutes = pathPrefix("users") {
+        path("") {
+          post {
+            userService.create(???, ???)
+            ???
+          }
+        } ~
+        path(PathElement) { username =>
+          get {
+            rejectEmptyResponse {
+              complete(userService.find(username))
+            }
+          }
+        }
+      }
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Spray
+
+## JSON Marshalling
+
+By defining a helper case class:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    case class UserCreateData(username: String, password: String)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+We can use the same methods to complete the user creation endpoint.
+
+## Spray
+
+### Json Marshalling
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    val userRoutes = pathPrefix("users") {
+      path("") {
+        post {
+          entity(as[UserCreateData]) { data =>
+            complete {
+              userService.create(data.username,
+                                 PlaintextPassword(data.password))
+                         .toOption
+            }
+          }
+        }
+      } ~
+      path(PathElement) { username =>
+        get {
+          rejectEmptyResponse {
+            complete(userService.find(username))
+          }
+        }
+      }
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
