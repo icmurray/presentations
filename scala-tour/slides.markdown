@@ -1898,7 +1898,7 @@ Returning to the route service:
 
 ## Spray
 
-## JSON Marshalling
+### JSON Marshalling
 
 By defining a helper case class:
 
@@ -1933,5 +1933,862 @@ We can use the same methods to complete the user creation endpoint.
         }
       }
     }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Play
+
+## Play Framework
+
+> Play is based on a lightweight, stateless, web-friendly architecture.
+> Built on Akka, Play provides predictable and minimal resource consumption
+> (CPU, memory, threads) for highly-scalable applications.
+
+## Play Overview
+
+> - Developer Friendly
+
+    - Just hit refresh in the browser
+    - Type Safety
+
+> - Scales
+    - Stateless web tier, built on top of Akka
+
+> - Moder web & mobile
+    - RESTful by default
+    - Asset compiler for LESS and CoffeeScript
+    - Websockets, Comet etc.
+
+## Play
+
+### Overview
+
+We'll take a look at:
+
+> - Simple controllers
+> - HTTP routing
+> - Simple templating
+> - Form submission
+
+## Play
+
+### Overview
+
+We won't take a look at:
+
+> - Advanced controllers techniques
+    - body parsers
+    - content negotiation
+    - Action composition
+> - Asynchronous HTTP programming
+    - Handling asynchronous results
+    - Comet sockets / WebScokets
+    - Iteratee library
+> - Play's JSON library
+> - File uploads
+> - Caching
+> - Calling web services
+> - I18n
+> - Plugins
+> - You get the idea...
+
+## Play
+
+### Setting up the sub-project.
+
+Cast your minds back to the SBT sub-projects, let's add a web-frontend
+sub-project.
+
+`project/Build.scala`:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    import play.Project._
+
+    object ScalaTalkExample extends Build {
+
+      /** As before ... */
+
+      lazy val frontend  = play.Project("hello-frontend",
+                                   path = file("frontend")
+                                  ) dependsOn(core) settings(
+                                    templatesImport ++= Seq(
+                                     "uk.co.sprily.scalaTalk._")
+                                  )
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Play
+
+### Setting up the sub-project
+
+`project/play.sbt`:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/"
+
+    addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.2.0")
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Note** if your Play project is standalone and doesn't need this sort of
+modularization, then the website has details on how to setup Play projects
+using the Play installer.
+
+## Play
+
+### File layout
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+app                      - Application sources
+ - assets                - Compiled asset sources
+    - stylesheets        - Typically LESS CSS sources
+    - javascripts        - Typically CoffeeScript sources
+ - controllers           - Application controllers
+ - models                - Application business layer
+ - views                 - Templates
+conf                     - Configurations files and other non-compiled resources (on classpath)
+ - application.conf      - Main configuration file
+ - routes                - Routes definition
+public                   - Public assets
+ - stylesheets           - CSS files
+ - javascripts           - Javascript files
+ - images                - Image files
+logs                     - Standard logs folder
+ - application.log       - Default log file
+target                   - Generated stuff
+ - scala-2.10.0          - 
+    - cache              
+    - classes            - Compiled class files
+    - classes_managed    - Managed class files (templates, ...)
+    - resource_managed   - Managed resources (less, ...)
+    - src_managed        - Generated sources (templates, ...)
+test                     - source folder for unit or functional tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Play
+
+### Dive straight in...
+
+That's right, we're gonna hook up our trusty UserService!
+
+## Play
+
+### Controllers
+
+Controllers define functions which return `Action`s.
+
+An `Action` is a function from request to response:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    `play.api.mvc.Request => play.api.mvc.Result`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For example:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    package controllers
+
+    import play.api.mvc._
+
+    object UserController extends Controller {
+      def detail(name: String) = Action {
+        Ok(s"Got the name: ${name}")
+      }
+
+      def create = TODO
+      def submit = TODO
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Play
+
+### Controllers
+
+- There **is** a mechanism for dependency injection of controllers, but it
+  involves runtime matching of the DI'd class.
+- AFAIK DI using the cake pattern isn't solved properly for Play yet.
+
+## Play
+
+### Controllers
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    def detail(name: String) = Action {
+      userService.find(name).map { user =>
+        Ok(views.html.userDetails(user))
+      }.getOrElse { NotFound("User not found") }
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Play
+
+### Routing
+
+To hook up an Action to a URL path, you add it to `conf/routes`:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+GET     /users/:name    controllers.UserController.detail(name)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It uses it's own DSL, and uses the routes table to compute reverse routing
+functions, which given a Controller's Action method return the URL for that
+Action.
+
+## Play
+
+### Templates
+
+Play has its own template engine, and templates are text files which contain
+small blocks of Scala code.
+
+Templates are compiled down to functions, using the filename as the function
+name.  The following file, `app/views/layout.scala.html` will be compiled down
+to the function `views.html.layout`.
+
+The resulting function, in this case has a curried form, with the parameter
+list specified on the first line:
+
+## Play
+
+### Templates
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    @(title: String)(content: Html)
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <title>@title</title>
+      </head>
+      <body>
+      @content
+      </body>
+    </html>
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+\pause
+
+This particular template (function) is called by other templates to render
+their content within the site's standard layout. eg.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    @(user: User)
+
+    @layout("User Details") {
+      <h1>@user.name</h1>
+      <p>@user.id.value</p>
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Play
+
+### Templates
+
+The `@` character is used to indicate the beginning of a dynamic expression.
+
+There is no end-block character, so only simple statements are possible.
+Multi-token statements are possible by marking the beginning and end with
+parentheses or curly brackets, eg:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    <p>@(user.name + " " + user.name)</p>
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Play
+
+### Templates
+
+Control structres exist:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    <ul>
+    @for(p <- products) {
+      <li>@p.name ($@p.price)</li>
+    }
+    </ul>
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+and 
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    @if(items.isEmpty) {
+      <h1>Nothing to display</h1>
+    } else {
+      <h1>@items.size items!</h1>
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Play
+
+### Templates
+
+You can define re-usable blocks:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    @display(product: Product) = {
+      @product.name ($@product.price)
+    }
+
+    <ul>
+    @for(product <- products) {
+      @display(product)
+    }
+    </ul>
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+\pause
+
+And re-usable variables:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    @defining(user.firstName + " " + user.lastName) { fullName =>
+      <div>Hello @fullName</div>
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Finally, you can import other functions into scope:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    @import utils._
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Play
+
+### Forms
+
+Play's support for defining and using forms is pretty good.  The best way I've
+found to use them is:
+
+1. Declare case classes for the data your trying to capture in the form.
+2. Define the form to construct those classes when bound to data from the
+   client.
+3. Transform the form data into the models for your backend.
+
+## Play
+
+### Forms
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    case class UserCreation(username: String, password: String)
+
+    object UserController extends Controller {
+
+      /** Rest of controller ellided */
+
+      private val userCreationForm = Form(
+        mapping(
+          "name" -> nonEmptyText,
+          "password" -> nonEmptyText
+        )(UserCreation.apply)(UserCreation.unapply))
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Note that more elaborate validation checks are possible by defining your
+  own validation functions at either the field-level, or the form-level.
+
+## Play
+
+### Forms
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    def create = Action {
+      val emptyForm = userCreationForm    // can optionally pre-fill it with data
+      Ok(views.html.userCreation(emptyForm))
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Play
+
+### Forms
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    def submit = Action { implicit request =>
+      userCreationForm.bindFromRequest.fold(
+        formErrors => BadRequest(views.html.userCreation(formErrors)),
+        userData   => {
+          val username = userData.username
+          val password = PlaintextPassword(userData.password)
+          userService
+            .create(username, password)
+            .map(creationRedirect)
+            .recover {
+              case UniqueConstraintException => duplicateUserError(userData)
+              case e                         =>
+                InternalServerError("Something went wrong...")
+            }
+            .get
+        }
+      )
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Play
+
+### Forms
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+  private def duplicateUserError(userData: UserCreation) = {
+    val form = userCreationForm.fill(userData)
+    val uniqueError = FormError(
+                        "name",
+                        s"User ${userData.username} already exists.")
+    BadRequest(views.html.userCreation(
+                form.copy(errors = uniqueError +: form.errors)))
+  }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This demonstrates adding extra errors to a form.  Global (ie, form-level)
+errors can be attached in the same way.
+
+\pause
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+  private def creationRedirect(user: User) = {
+    Redirect(routes.UserController.detail(user.name)).flashing {
+      "success" -> s"Created new user: ${user.name}"
+    }
+  }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- This demonstrates redirection (again, using reverse routing).
+- And the helper `.flashing` function which adds a user message to the session
+  for the next request only.
+
+## Play
+
+### Forms
+
+Finally, a default rendering of the `Form` is easy to achieve:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+@(form: Form[controllers.UserCreation])
+
+@layout("Create User") {
+  @helper.form(action = controllers.routes.UserController.submit) {
+    @helper.inputText(form("name"))
+    @helper.inputPassword(form("password"))
+    <input type="submit" value="Submit"/>
+  }
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+> - There are bootstrap @helper functions for rendering form elements as
+>   bootstrap expects them to be.  Or you can define your own.
+> - The form's sbumission URL is constructed by reversing the routes table.
+
+## Play
+
+### Console
+
+Play has a very useful feature for writing web applications, which is you `run`
+the Play sub-project, it will start a server with auto-loading enabled.  Which
+means any change to source files will trigger a re-compilation before the
+response is returned to the browser.
+
+# Akka
+
+## Akka
+
+> Akka is a toolkit and runtime for building highly concurrent, distributed,
+> and fault tolerant event-driven applications on the JVM.
+
+## Akka
+
+### Overview
+
+Best known for it's actor system...
+
+> - **Very** lightweight actors
+    - 2.5 million actors / GB heap
+> - Remote actors
+> - Typed actors
+> - Fault tolerance / supervision
+> - Load balancing
+> - Routing
+> - FSMs
+
+## Akka
+
+### Overview
+
+But also encompasses other solutions to the problems associated with
+concurrency, resiliency and distribution.
+
+> - Dataflow concurrency
+> - Software Transactional Memory
+> - Agents (think Clojure)
+> - Transactors
+> - Asynchrounous IO
+
+## Akka
+
+### Overview
+
+Again, Akka is a huge topic which would warrant many talks devoted to it.  I'll
+cover:
+
+> - A brief overview of the actor model.
+> - What a simple actor looks like in Akka.
+> - Akka's philosophy of "let it fail".
+> - An example of a FSM actor
+> - No `UserService`s this time, I swear...
+
+## Akka
+
+### Actor Model
+
+> - An actor encapsulates state and behaviour.
+> - and communicates with other actors **solely** by placing messages in other
+>   `Actor`'s mailboxes.
+> - An `Actor` is guaranteed to be processing only a single message at a time.
+> - If I send 2 messages to another `Actor`, I know she will receive them in
+>   the order I sent them (although maybe interleaved with other incoming
+>   messages).
+> - Actors are designed to be very lightweight:
+    - it's possible to have millions on a single machine
+    - they are disposable (cheap to create for small one-off tasks)
+> - They are run on top of configurable executor pools.
+
+> - Actors should not block
+     - waiting on a lock
+     - waiting on IO etc.
+> - Actors should only pass *immutable* data between one-another.
+
+> - In Akka, actors form a hierarchy.
+> - Parent actors are responsible for supervising their children.
+
+## Akka
+
+### Simple Actor
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    import akka.actor.Actor
+    import akka.actor.Props
+    import akka.event.Logging
+     
+    class MyActor extends Actor {
+      val log = Logging(context.system, this)
+      def receive = {
+        case "test" => log.info("received test")
+        case _      => log.info("received unknown message")
+      }
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+`receive` has type `PartialFunction[Any, Unit]`.
+
+## Akka
+
+### Simple Actor
+
+To create a `MyActor` we first need an `ActorSystem`.  This is a hierarchical
+group of `Actors` with common configuration.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    import akka.actor.ActorSystem
+    val system = ActorSystem("name-for-my-actor-system")
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Akka
+
+### Simple Actor
+
+Once we have an `ActorSystem`, we can start creating `Actor`s at the route of
+it:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    val myActor: ActorRef = system.actorOf(Props[MyActor], "myactor")
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Note the return type: `ActorRef`, *not* `Actor`.
+
+> - an `ActorRef` is handle to an `Actor`.
+> - it is immutable (can be passed in messages)
+> - ... and serializable and network-aware.
+    - it can be send across the wire, and it will still represent the same
+      `Actor` on the *original* machine.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    myActor ! "test"    // prints "TEST"
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Akka
+
+### Simple Actor
+
+Actors beget Actors...
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    class ParentActor extends Actor {
+       val child = context.actorOf(Props[MyActor], "my-child")
+       def receive = {
+         case "test" => child ! "test"
+         case "TEST" => println("Don't shout at my kid!")
+       }
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    val parent = system.actorOf(Props[ParentActor], "parent")
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    parent ! "test"    // prints "TEST"
+    parent ! "TEST"    // prints "Don't shout at my kid!"
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Akka
+
+### Simple Actor
+
+In the previous example, the parent will be notified if the child fails (ie
+throws an Exception).
+
+\pause
+
+When a child actor detects a failure, it:
+
+1. Suspends itself and all *it's* descendants.
+2. Sends a message to its parent.
+
+\pause
+
+The parent then has a choice of options:
+
+> 1. Resume the subordinate, keeping its accumulated internal state
+> 2. Restart the subordinate, clearing out its accumulated internal state
+> 3. Terminate the subordinate permanently
+> 4. Escalate the failure, thereby failing itself
+
+*Note* - Failure messages by-pass the standard mailbox, and therefore there are
+no guarantees about the order of delivery of failure messages with respect to
+ordinary messages.
+
+## Akka
+
+### Simple Actor
+
+*Note* - Akka talks in terms of "supervisors" and "sub-ordinates", so I'll
+stick to that now...
+
+## Akka
+
+### Simple Actor
+
+Who polices the police?
+
+> - There are 3 special actors
+> - /user : the guardian actor
+    - This is root of the actors created using `system.actorOf()`.
+> - /system : the system guardian actor
+    - This supports the system support hierarchy.
+    - One of the things it does is it's notified of termination of the `/user`
+      actor hierarchy, and shuts down cleanly.
+> - / : the root actor.
+    - Supervisor of the above two actors.
+
+## Akka
+
+### Simple Actor
+
+When a failed `Actor` is restarted, a *new* instance of the `Actor` is
+instantiated.  And the reference from the *original* `ActorRef` to the orginal
+`Actor` is replace with a reference to the *new* `Actor`.
+
+So holders of the `ActorRef` will not notice a difference.
+
+## Akka
+
+### Simple Actor
+
+There are hooks at the various stages of restart for cleaning up/setting up
+state etc:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    oldInstance.preRestart()
+    newInstance.postRestart()
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Akka
+
+### Simple Actor
+
+In addition to the supervision above, an Actor may monitor any other Actor and
+be notified of it's `Termination`.  (ie - not restarts).
+
+## Akka
+
+### FSM Actor
+
+Akka has a DSL for constructing Finite State Machine Actors.
+
+The goal is to represent a sealed bid:
+
+> - Something is up for auction with a reserve price.
+> - An auctioneer opens the bidding.
+> - Actors bid without seeing other Actor's bids.
+> - After a fixed duration of no new bids, the bidding is closed.
+> - The winning actor (if any) gets notified that they are successful.
+> - The rest get notified that they lost.
+
+## Akka
+
+### FSM Actor
+
+The Auction's states:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    sealed trait RcvMsg
+    case object OpenBidding extends RcvMsg
+    case class  Bid(amount: Double) extends RcvMsg
+    case object CloseBidding extends RcvMsg
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+And it's *internal* state:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    case class Ledger(reserve: Double, offers: Map[ActorRef, Bid])
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Akka
+
+### FSM Actor
+
+The Auction handles the following events:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    sealed trait RcvMsg
+    case object OpenBidding extends RcvMsg
+    case class  Bid(amount: Double) extends RcvMsg
+    case object CloseBidding extends RcvMsg
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Akka
+
+### FSM Actor
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    class Auction(product: Any,
+                  reserve: Double,
+                  auctioneer: ActorRef) extends Actor
+                                           with ActorLogging
+                                           with FSM[DealState, Ledger] {
+
+      startWith(Draft, Ledger(reserve, Map.empty))
+
+      /** ellided */
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Akka
+
+### FSM Actor
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    when(Draft) {
+      case Event(OpenBidding, ledger) =>
+        if (sender == auctioneer) {
+          goto(AcceptingOffers) using ledger forMax(10.seconds)
+        } else {
+          stay
+        }
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Akka
+
+### FSM Actor
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    when(AcceptingOffers) {
+      case Event(b: Bid, ledger) =>
+        val newLedger = ledger.copy(
+          offers = ledger.offers + (sender -> b))
+
+        stay using newLedger forMax(10.seconds)
+
+      case Event(CloseBidding, ledger) =>
+        if (sender == auctioneer) {
+          stop
+        } else {
+          stay
+        }
+
+      case Event(StateTimeout, ledger) =>
+        log.warning("Timed out")
+        stop
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Akka
+
+### FSM Actor
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    whenUnhandled {
+      case Event(e,s) =>
+        log.warning("received unhandled message {} in state {}/{}",
+                      e, stateName, s)
+        stay
+    }
+
+    onTermination {
+      case StopEvent(FSM.Normal, _, ledger) => {
+        winner(ledger) match {
+          case None    => notifyLoss(ledger.offers.keys.toSeq, product)
+          case Some(w) =>
+            notifyLoss(ledger.offers.keys.filter(_ != w).toSeq, product)
+            notifyWin(w, product)
+        }
+      }
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Akka
+
+### FSM Actor
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    sealed trait AuctioneerCommand
+    case class CreateAuction(product: Any, reserve: Double) extends AuctioneerCommand
+    case class BidOn(product: Any, amount: Double) extends AuctioneerCommand
+    case object AuctionClosed extends AuctioneerCommand
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Akka
+
+### FSM Actor
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    class Auctioneer extends Actor {
+
+      private var auctions: Map[Any, ActorRef] = Map.empty
+
+      def receive = {
+        case CreateAuction(product, reserve) =>
+          val auction = context.actorOf(Props(new Auction(product, reserve, self)))
+          auctions += (product -> auction)
+          auction ! FSM.SubscribeTransitionCallBack(self)
+          auction ! OpenBidding
+
+        case AuctionClosed =>
+          auctions = auctions.filterNot { case (p, a) => a == sender }
+
+        case BidOn(product, amount) =>
+          auctions.get(product) match {
+            case Some(auction) => auction forward Bid(amount)
+            case _             => {}
+          }
+      }
+
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Akka
+
+### FSM Actor
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    auctioneer ! CreateAuction("car", 100.0)
+    auctioneer ! BidOn("BidOn("car", 150.0)
+    auctioneer ! BidOn("BidOn("car", 180.0)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
