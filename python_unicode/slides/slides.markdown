@@ -2,29 +2,12 @@
 
 ---
 
-# Use Python 3
-
----
-
-# Any Questions?
-
----
-
 # Overview
 
 1. History lesson.
 2. Python and unicode.
-3. Best practice.
-    Web
-4. Common problems / pitfalls.
-
-## Presenter Notes
-
-* easy to view these as containers, but can also be useful to think of these as
-  a "computational context".  But these are just metaphors, and it's quite
-  possible for an instance of a Functor to not fit either of these.
-* all these types implement functor, and we'll show how using functor we can do
-  things with the values within.
+3. Common problems / pitfalls.
+4. Best practice.
 
 ---
 
