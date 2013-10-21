@@ -3,8 +3,26 @@
 
 ## Overview
 
-- TODO
-- TODO
+- Last month, we learnt about the langauge.
+
+## Overview
+
+- Tools
+- A few useful techniques
+- Common libraries and frameworks addressing specific problems
+
+## Overview
+
+- **Simple Build Tool**
+- **Cake Pattern** for compile-time dependency injection.
+- **Slick** for using relational databases.
+- **Spray** for writing REST APIs
+- **Play** Framework for writing websites
+- **Akka** for writing highly concurrent systems using actors.
+
+\pause
+
+That's a **lot**.
 
 # Simple Build Tool
 
@@ -529,7 +547,7 @@ trait PersistedUserServiceModule extends UserServiceModule {
       } yield user
     }
 
-    // Helper methods ellided
+    // Helper methods elided
   }
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -674,6 +692,18 @@ We can wire up a mock `UserDAO` to a `PersistedServiceModule`:
       - Order matters when using `abstract override def`s.
       - Instantiation order can cause `NullPointerException`s.
           - Can mostly be mitigated by using `lazy val`s.
+
+## Cake Pattern
+
+### Where Next?
+
+> - "Scalable Abstract Components" by Martin Odersky
+> - Popularised by blog post by Jonas Boner
+    - jonasboner.com
+> - "Bakery from the Black Lagoon" Talk by Daniel Spiewak
+> - Experimental macro-based implementation which removes boiler-plate.
+    - In fact, scabl.blogspot.co.uk has a very good, and more in-depth
+      explanation of the cake pattern
 
 # Slick
 
@@ -1060,7 +1090,7 @@ different database you wish to use.
 
       val Users = new UsersTable()
 
-      trait UserTypeMappers { /** ellided **/ }
+      trait UserTypeMappers { /** elided */ }
 
       class UsersTable extends Table[User]("users")
                           with UserTypeMappers {
@@ -1110,7 +1140,7 @@ Finally, concrete implementations of the database module can be written:
           driver = "org.h2.Driver"
       )
 
-      protected def randomDBName = { /** ellided **/ }
+      protected def randomDBName = { /** elided */ }
     }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1139,7 +1169,7 @@ Defining the module...
 
       val userService = new Impl()
 
-      class Impl extends UserService { /** ellided **/ }
+      class Impl extends UserService { /** elided */ }
 
     }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1162,7 +1192,7 @@ Defining the `Impl`:
       import slickProfile.simple._
 
       def create(username: String,
-                 plaintextPassword: PlaintextPassword) = { /** ellided */ }
+                 plaintextPassword: PlaintextPassword) = { /** elided */ }
 
       def authenticate(username: String,
                        plaintextPassword: PlaintextPassword) = {
@@ -1237,6 +1267,14 @@ So far I've been skipping over this
       }
     }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Slick
+
+### Where Next?
+
+- The documentation leaves a little to be desired.
+- The source code's unit tests are very useful (www.github.com/slick)
+- As is the examples project, slick-examples.
 
 # Spray
 
@@ -1474,9 +1512,7 @@ rejected.
 
 > - Route 1 will only be reached if directives a, b and c all let the request
 >   pass through.
-
 > - Route 2 will run if a and b pass, c rejects and d passes.
-
 > - Route 3 will run if a and b pass, but c and d reject.
 
 ## Spray
@@ -1506,15 +1542,15 @@ Back to our first example:
 `Directives` are the building blocks of the routing tree.  They do at least one
 of the following:
 
-1. Filter the `RequestContext` according to some logic, i.e. only pass on certain
+1. **Filter** the `RequestContext` according to some logic, i.e. only pass on certain
    requests and reject all others.
 
-2. Extract values from the `RequestContext` and make them available to its inner
+2. **Extract values** from the `RequestContext` and make them available to its inner
    Route as “extractions”.
 
-3. Complete the request.
+3. **Complete** the request.
 
-4. Transform the incoming RequestContext before passing it on to its inner
+4. **Transform** the incoming RequestContext before passing it on to its inner
    Route.
 
 ## Spray
@@ -1534,7 +1570,7 @@ Filtering directives:
     }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-`path`, `get` and `post` are all examples of filter directives.
+`path`, `get` and `post` are all examples of **filter** directives.
 
 ## Spray
 
@@ -1550,7 +1586,7 @@ Exracting values:
     }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-`path("users" / LongNumber)` extracts a `Long` from the URL and provides it as
+`path("users" / LongNumber)` **extracts** a `Long` from the URL and provides it as
 the value `id` in the inner route.
 
 ## Spray
@@ -1558,8 +1594,9 @@ the value `id` in the inner route.
 ### Routing
 
 The `path("users")` directive is also an example of a directive which
-transforms the incoming `RequestContext` because it extracts the suffix of the
-path that was not matched, and passes that in as the path to the inner route.
+**transforms** the incoming `RequestContext` because it extracts the suffix of
+the path that was not matched, and passes that in as the path to the inner
+route.
 
 \pause
 
@@ -1582,20 +1619,22 @@ path.  Eg.
 
 Some useful directives:
 
-> - `get`, `put`, `post`, `delete` match only http requests with those methods.
-    - Can be composed together, eg:
+- `get`, `put`, `post`, `delete` match only http requests with those methods.
+   - Can be composed together, eg:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
         val getOrPut = get | put
         val route = getOrPut { ... }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-> - `path("users")` and `pathPrefix("users")` for matching paths.
+\pause
 
-> - `IntNumber`, `LongNumber`, `JavaUUID` all extract values from a single
->   segment in a url path.
+- `path("users")` and `pathPrefix("users")` for matching paths.
 
-And user-defined one can also be created.
+- `IntNumber`, `LongNumber`, `JavaUUID` all extract values from a single
+  segment in a url path.
+
+And user-defined ones can also be created.
 
 ## Spray
 
@@ -1610,14 +1649,14 @@ UserService.
     trait UserRoutes extends HttpService {
       this: UserServiceModule =>
 
-      val userRoutes = pathPrefix("users") {
-        path("") {
+      val userRoutes = {
+        path("users") {
           post {
             userService.create(???, ???)
             ???
           }
         } ~
-        path(PathElement) { username =>
+        path("users" / PathElement) { username =>
           get {
             userService.find(username)
             ???
@@ -1640,21 +1679,14 @@ a protected resource:
     trait PrivateRoutes extends HttpService {
       this: UserServiceModule =>
 
-      /** Required for the UserServiceAuthenticator **/
-      import scala.concurrent.{Future, ExecutionContext}
-      implicit def executionContext: ExecutionContext = actorRefFactory.dispatcher 
+      /** elided */
 
-      import spray.routing.authentication._
       val privateRoutes = path("protected") {
         authenticate(BasicAuth(userAthenticator, "realm name")) { user =>
           complete("Secret!")
         }
       }
 
-      private val userAuthenticator = new UserServiceAuthenticator()
-
-      private class UserServiceAuthenticator
-              extends UserPassAuthenticator[User] { /** ellided */ }
     }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1665,30 +1697,11 @@ a protected resource:
 Pulling these two route definitions together and serving them using spray-can:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
-    object Boot extends App {
-
-      // we need an ActorSystem to host our application in
-      implicit val system = ActorSystem("on-spray-can")
-
-      // create and start our service actor
-      val service = system.actorOf(Props[ServiceActor], "hello-service")
-
-      // start a new HTTP server on port 8080 with our service actor as the handler
-      IO(Http) ! Http.Bind(service, "localhost", port = 8080)
-    }
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-## Spray
-
-### Routing
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
-    class ServiceActor extends Actor
-                          with PrivateRoutes
-                          with UserRoutes
-                          with SlickUserServiceModule
-                          with SlickUserTableModule
-                          with InMemoryDatabaseModule {
+    class ApiActor extends Actor
+                      with AllRoutes
+                      with AllServices
+                      with AllSlickTables
+                      with InMemoryDatabaseModule
 
       // the HttpService trait defines only one abstract member, which
       // connects the services environment to the enclosing actor or test
@@ -1700,6 +1713,24 @@ Pulling these two route definitions together and serving them using spray-can:
       def receive = runRoute(allRoutes)
 
       lazy val allRoutes = userRoutes ~ privateRoutes
+    }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Spray
+
+### Routing
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
+    object Boot extends App {
+
+      // we need an ActorSystem to host our application in
+      implicit val system = ActorSystem("on-spray-can")
+
+      // create and start our service actor
+      val service = system.actorOf(Props[ApiActor], "hello-service")
+
+      // start a new HTTP server on port 8080 with our service actor as the handler
+      IO(Http) ! Http.Bind(service, "localhost", port = 8080)
     }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1726,7 +1757,7 @@ performed by a Marshaller:
 
 \pause
 
-Again, the type the `apply` function is perhaps not expected.  The Spray
+Again, the type of the `apply` function is perhaps not expected.  The Spray
 documentation cites 3 reasons for this:
 
 1. Marshalling must support content negotiation.  The claim is that this is
@@ -1836,7 +1867,7 @@ In the case of case classes, this is very simple:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
 trait JSONFormats {
 
-  implicit val userIdFormat = jsonFormat1(UserId)
+  implicit val userIdFormat = jsonFormat(UserId, "id")
 
   implicit val userWriter = new RootJsonWriter[User] {
     def write(user: User) = JsObject(
@@ -1848,7 +1879,7 @@ trait JSONFormats {
 
 - `jsonFormatN` can be used to construct a `JsonFormat[T]` when `T` is a case
   class.
-    - There is a variant which accepts alternate field names.
+    - I've shown the variant which accepts alternate field names.
 
 - We haven't constructed a full `JsonFormat[User]` because we cannot construct
   the HashedPassword.  But we have provided the read-side.
@@ -1879,11 +1910,7 @@ Returning to the route service:
       this: UserServiceModule =>
 
       val userRoutes = pathPrefix("users") {
-        path("") {
-          post {
-            userService.create(???, ???)
-            ???
-          }
+        path("") { /** elided */ }
         } ~
         path(PathElement) { username =>
           get {
@@ -1935,6 +1962,15 @@ We can use the same methods to complete the user creation endpoint.
     }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+## Spray
+
+### Where Next?
+
+- There's a *lot* in Spray.
+- They also have some good posts on their blog (spray.io/blog)
+    - One highlight is the "Magnet Pattern", which is used to overcome problems
+      of type-erasure when overloading methods.
+
 # Play
 
 ## Play Framework
@@ -1946,14 +1982,13 @@ We can use the same methods to complete the user creation endpoint.
 ## Play Overview
 
 > - Developer Friendly
-
     - Just hit refresh in the browser
     - Type Safety
 
 > - Scales
     - Stateless web tier, built on top of Akka
 
-> - Moder web & mobile
+> - Modern web & mobile
     - RESTful by default
     - Asset compiler for LESS and CoffeeScript
     - Websockets, Comet etc.
@@ -2051,15 +2086,6 @@ public                   - Public assets
  - stylesheets           - CSS files
  - javascripts           - Javascript files
  - images                - Image files
-logs                     - Standard logs folder
- - application.log       - Default log file
-target                   - Generated stuff
- - scala-2.10.0          - 
-    - cache              
-    - classes            - Compiled class files
-    - classes_managed    - Managed class files (templates, ...)
-    - resource_managed   - Managed resources (less, ...)
-    - src_managed        - Generated sources (templates, ...)
 test                     - source folder for unit or functional tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -2078,7 +2104,7 @@ Controllers define functions which return `Action`s.
 An `Action` is a function from request to response:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
-    `play.api.mvc.Request => play.api.mvc.Result`
+    play.api.mvc.Request => play.api.mvc.Result
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For example:
@@ -2143,12 +2169,11 @@ Templates are compiled down to functions, using the filename as the function
 name.  The following file, `app/views/layout.scala.html` will be compiled down
 to the function `views.html.layout`.
 
-The resulting function, in this case has a curried form, with the parameter
-list specified on the first line:
-
 ## Play
 
 ### Templates
+
+`layout.html.scala':
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
     @(title: String)(content: Html)
@@ -2164,10 +2189,14 @@ list specified on the first line:
     </html>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-\pause
+## Play
+
+### Templates
 
 This particular template (function) is called by other templates to render
 their content within the site's standard layout. eg.
+
+`userDetail.html.scala`:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
     @(user: User)
@@ -2196,7 +2225,7 @@ parentheses or curly brackets, eg:
 
 ### Templates
 
-Control structres exist:
+Control structures exist:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
     <ul>
@@ -2226,7 +2255,11 @@ You can define re-usable blocks:
     @display(product: Product) = {
       @product.name ($@product.price)
     }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
 
+and call it from the same template:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     <ul>
     @for(product <- products) {
       @display(product)
@@ -2234,7 +2267,9 @@ You can define re-usable blocks:
     </ul>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-\pause
+## Play
+
+### Templates
 
 And re-usable variables:
 
@@ -2243,6 +2278,8 @@ And re-usable variables:
       <div>Hello @fullName</div>
     }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+\pause
 
 Finally, you can import other functions into scope:
 
@@ -2271,7 +2308,7 @@ found to use them is:
 
     object UserController extends Controller {
 
-      /** Rest of controller ellided */
+      /** Rest of controller elided */
 
       private val userCreationForm = Form(
         mapping(
@@ -2383,6 +2420,15 @@ the Play sub-project, it will start a server with auto-loading enabled.  Which
 means any change to source files will trigger a re-compilation before the
 response is returned to the browser.
 
+## Play
+
+### Where Next?
+
+- *Huge* amount of stuff online.
+- Documentation is really very good.
+- The "play-iteratee" library (which doesn't depend on Play) is quite
+  interesting and powerful.
+
 # Akka
 
 ## Akka
@@ -2414,7 +2460,7 @@ concurrency, resiliency and distribution.
 
 > - Dataflow concurrency
 > - Software Transactional Memory
-> - Agents (think Clojure)
+> - Agents
 > - Transactors
 > - Asynchrounous IO
 
@@ -2500,11 +2546,15 @@ it:
 
 - Note the return type: `ActorRef`, *not* `Actor`.
 
+\pause
+
 > - an `ActorRef` is handle to an `Actor`.
 > - it is immutable (can be passed in messages)
 > - ... and serializable and network-aware.
     - it can be send across the wire, and it will still represent the same
       `Actor` on the *original* machine.
+
+\pause
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.scala}
     myActor ! "test"    // prints "TEST"
@@ -2557,6 +2607,8 @@ The parent then has a choice of options:
 > 2. Restart the subordinate, clearing out its accumulated internal state
 > 3. Terminate the subordinate permanently
 > 4. Escalate the failure, thereby failing itself
+
+\pause
 
 *Note* - Failure messages by-pass the standard mailbox, and therefore there are
 no guarantees about the order of delivery of failure messages with respect to
@@ -2674,7 +2726,7 @@ The Auction handles the following events:
 
       startWith(Draft, Ledger(reserve, Map.empty))
 
-      /** ellided */
+      /** elided */
     }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -2792,3 +2844,27 @@ The Auction handles the following events:
     auctioneer ! BidOn("BidOn("car", 180.0)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+## Akka
+
+### Where Next?
+
+- Where to start?
+- All the things I mentioned at the beginning...
+- There's the new IO layer for asynchronous socket programming on top of NIO
+- ... and persisted actors which when restarted will replay any unsent messages
+- ... useful for eventsourcing architectures (for which there *is* an akka
+  project, "eventsourced")
+
+# Where Next?
+
+## Where Next?
+
+> - ScalaCheck
+> - Scalaz
+> - ScalaSTM
+
+## Where Next?
+
+> - shapeless
+> - scalaz
+> - machines
