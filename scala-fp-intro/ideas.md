@@ -2,7 +2,7 @@
 
   - traits
   - classes
-  -  objects
+  - objects
   - case classes (ADTs)
   - pattern matching
   - for comprehensions
@@ -15,6 +15,10 @@
   - omitting dot notations
   - operator precedence (`:`)
   - type inference
+  - @tailrec
+  - @specialized
+  - @inline
+  - package object
 
 # Standard Lib
 
@@ -34,6 +38,7 @@
   - strutural types
   - type classes
   - implicit classes
+  - higher-kinded types example
 
 # Macros
 
